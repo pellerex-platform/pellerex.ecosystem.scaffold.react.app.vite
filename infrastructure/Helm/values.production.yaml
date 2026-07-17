@@ -1,0 +1,87 @@
+replicaCount: 2
+deploymentStrategy: RollingUpdate
+
+image:
+  repository: pellerex/RepoUniqueNormalisedIdentifier
+  pullPolicy: Always
+  tag: "v1.0.0"
+
+# Runtime config written into env.js at container start (env.sh). PUBLIC values only (WA-D9).
+env:
+  - name: "ENVIRONMENT"
+    value: "production"
+  - name: "PORT"
+    value: "<port-number>"
+  # In v1 (Mode 1) the app calls the tenant's OWN backend — set this to that backend's base URL.
+  - name: "API_BASE_URL"
+    value: "https://api.pellerex.com/proxy"
+  # Tenant IDP (e.g. Auth0) — all public client values; fill these in to enable login.
+  - name: "OIDC_ISSUER"
+    value: ""
+  - name: "OIDC_CLIENT_ID"
+    value: ""
+  - name: "OIDC_AUDIENCE"
+    value: ""
+  - name: "OIDC_REDIRECT_URI"
+    value: ""
+  # Browser RUM (optional). Populated by the SetupMonitoring step; placeholder if the app opts out.
+  - name: "APP_INSIGHTS_CONNECTION_STRING"
+    value: "<azure-app-insights-connection-string-in-production>"
+  # Left empty: the app derives /proxy/{ProductName}/{env} from the URL at runtime (build once).
+  - name: "BASE_PATH"
+    value: ""
+
+imagePullSecrets:
+  - name: image-pull-secret
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+# Non-root nginx (uid 101 in nginx:alpine) with a read-only root filesystem — writable
+# paths are the /tmp and /runtime-config emptyDirs the deployment mounts (API-scaffold parity).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 101
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: <port-number>
+
+# No Ingress — reachability is a ProxyApi anonymous route, not a per-app Ingress (WA-D4).
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,12 @@
+{{ .Chart.Name }} deployed.
+
+This is a Pellerex Managed App Service (static React/Vite on nginx). It has NO Ingress of its own —
+it is reached through ProxyApi as an anonymous route at:
+
+    https://app.pellerex.com/proxy/{ProductName}/{{ .Values.env | default (list) | toJson }}/
+
+The container serves the platform health endpoints used by the chart probes:
+    /health/startup   /health/live   /health/ready
+
+Runtime config is injected into env.js at container start (docker-entrypoint.d/env.sh) from the
+environment variables in this chart's values — public values only, never a secret.

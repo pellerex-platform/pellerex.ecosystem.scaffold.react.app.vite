@@ -1,0 +1,51 @@
+name: CI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+env:
+  # Matches this scaffold's AzDO pipeline artifact identity (ManagedApp — the Managed App
+  # Service product type, WA-D5 — not ManagedApi). The release side must consume this name.
+  PROJECT_NAME: Pellerex.Ecosystem.ManagedApp.RepoUniqueNormalisedIdentifier
+  DOCKER_REPOSITORY: pellerex/RepoUniqueNormalisedIdentifier
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with LFS)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Secret scan (WA-R2): a static SPA ships its entire bundle to the browser, so NO
+      # secret may ever land in the repo — same gate as the AzDO pipeline.
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload infrastructure artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}
+          path: infrastructure/**
+
+      - name: Log in to DockerHub
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.PELLEREX_DOCKER_CONTAINERREGISTRY_USERNAME }}
+          password: ${{ secrets.PELLEREX_DOCKER_CONTAINERREGISTRY_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.DOCKER_REPOSITORY }}:latest
+            ${{ env.DOCKER_REPOSITORY }}:v1.0.0

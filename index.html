@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Runtime config (WA-D7). env.js is rewritten by docker-entrypoint.d/env.sh at container
+      start from environment variables, so ONE built image promotes across QA/Staging/Prod.
+      Loaded BEFORE everything so window.__PELLEREX_ENV__ exists at startup. PUBLIC values only
+      (no secrets reach the browser — WA-D9 / WA-R2). nginx serves env.js at any path depth.
+    -->
+    <script src="./env.js"></script>
+    <!--
+      The app is served under a runtime path prefix: app.pellerex.com/proxy/{ProductName}/{env}/
+      (ProxyApi strips /proxy/{ProductName}/{env} before nginx). We resolve that prefix at runtime
+      and set <base href> so every RELATIVE asset URL (Vite base:'./') resolves correctly at any
+      deep-link depth — without baking the path at build time. (03_NETWORKING / 05_CONFIG_SECRETS.)
+    -->
+    <base id="pellerex-base" href="/" />
+    <script>
+      (function () {
+        var env = window.__PELLEREX_ENV__ || {};
+        var base = env.basePath;
+        if (!base) {
+          // Derive /proxy/{ProductName}/{env} from the URL the app was served under.
+          var m = window.location.pathname.match(/^(\/proxy\/[^/]+\/[^/]+)(\/|$)/);
+          base = m ? m[1] : "/";
+        }
+        if (base !== "/" && base.charAt(base.length - 1) !== "/") base += "/";
+        if (!base) base = "/";
+        var el = document.getElementById("pellerex-base");
+        if (el) el.setAttribute("href", base);
+        // Router basename = base without the trailing slash ("" when served at root).
+        window.__PELLEREX_BASE_PATH__ = base === "/" ? "" : base.replace(/\/$/, "");
+      })();
+    </script>
+    <title>Pellerex Managed App Service</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

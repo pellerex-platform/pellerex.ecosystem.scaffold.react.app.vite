@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "RepoUniqueNormalisedIdentifier.fullname" . }}
+  labels:
+    {{- include "RepoUniqueNormalisedIdentifier.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: {{ .Values.deploymentStrategy }}
+  selector:
+    matchLabels:
+      {{- include "RepoUniqueNormalisedIdentifier.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        timestamp: "{{ now | date "2006-01-02 15:04:05" }}"
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "RepoUniqueNormalisedIdentifier.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "RepoUniqueNormalisedIdentifier.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{ range $k, $v := .Values.env }}
+            - name: {{ $v.name | quote }}
+              value: {{ $v.value | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: <port-number>
+              protocol: TCP
+          # The App-Service chart ADDS health probes at the platform paths (WA-D11). The .NET API
+          # reference charts define none; a static container benefits from a readiness gate.
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          # Writable mounts that make readOnlyRootFilesystem possible: nginx pid/temp
+          # paths live in /tmp (see nginx.conf), env.sh writes env.js to /runtime-config.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: runtime-config
+              mountPath: /runtime-config
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: runtime-config
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "RepoUniqueNormalisedIdentifier.selectorLabels" . | nindent 14 }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

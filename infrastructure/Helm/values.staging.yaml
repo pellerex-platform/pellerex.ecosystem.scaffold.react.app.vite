@@ -1,0 +1,82 @@
+replicaCount: 1
+deploymentStrategy: RollingUpdate
+
+image:
+  repository: pellerex/RepoUniqueNormalisedIdentifier
+  pullPolicy: Always
+  tag: "v1.0.0"
+
+env:
+  - name: "ENVIRONMENT"
+    value: "staging"
+  - name: "PORT"
+    value: "<port-number>"
+  - name: "API_BASE_URL"
+    value: "https://api.pellerex.com/proxy"
+  - name: "OIDC_ISSUER"
+    value: ""
+  - name: "OIDC_CLIENT_ID"
+    value: ""
+  - name: "OIDC_AUDIENCE"
+    value: ""
+  - name: "OIDC_REDIRECT_URI"
+    value: ""
+  - name: "APP_INSIGHTS_CONNECTION_STRING"
+    value: "<azure-app-insights-connection-string-in-staging>"
+  - name: "BASE_PATH"
+    value: ""
+
+imagePullSecrets:
+  - name: image-pull-secret
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+# Non-root nginx (uid 101 in nginx:alpine) with a read-only root filesystem — writable
+# paths are the /tmp and /runtime-config emptyDirs the deployment mounts (API-scaffold parity).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 101
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: <port-number>
+
+# No Ingress — reachability is a ProxyApi anonymous route (WA-D4).
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

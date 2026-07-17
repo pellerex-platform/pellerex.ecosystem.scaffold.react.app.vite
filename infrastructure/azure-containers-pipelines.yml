@@ -1,0 +1,79 @@
+trigger:
+  - <target-branch>
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - group: PipelineVariables
+  - name: projectName
+    value: "Pellerex.Ecosystem.ManagedApp.RepoUniqueNormalisedIdentifier"
+  - name: dockerRepositoryName
+    value: "pellerex/RepoUniqueNormalisedIdentifier"
+  - name: nodeVersion
+    value: "20.x"
+
+steps:
+  - checkout: self
+    lfs: true
+
+  # Secret scan (WA-R2): a static SPA ships its entire bundle to the browser, so NO secret may ever
+  # land in the repo. Fail the build if any secret is detected (only public runtime config via env.js).
+  - script: |
+      docker run --rm -v "$(Build.SourcesDirectory):/repo" zricethezav/gitleaks:latest \
+        detect --source=/repo --no-git --redact -v
+    displayName: "Secret scan (gitleaks) — fail on any secret (WA-R2)"
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: "$(nodeVersion)"
+    displayName: "Setup Node $(nodeVersion)"
+
+  # Reproducible install against the committed lockfile (WA-R7).
+  - script: |
+      npm ci
+    displayName: "Install dependencies (npm ci)"
+
+  - script: |
+      npm run typecheck
+    displayName: "Type-check"
+
+  # Build the static bundle (tsc -b && vite build -> dist/).
+  - script: |
+      npm run build
+    displayName: "Build static bundle"
+
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: "infrastructure"
+      Contents: "**"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)"
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathtoPublish: "$(Build.ArtifactStagingDirectory)"
+      artifactName: "$(projectName)"
+    displayName: "Upload Artifacts"
+
+  - task: Docker@2
+    displayName: Build image (nginx + static bundle)
+    inputs:
+      repository: "$(dockerRepositoryName)"
+      command: "build"
+      Dockerfile: "**/Dockerfile"
+      tags: |
+        latest
+        v1.0.0
+
+  - task: Docker@2
+    displayName: Push
+    # Tokenised like the trigger — a hardcoded 'master' would silently never push for
+    # tenant repos whose default branch is 'main' (same fix as the API scaffolds).
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/<target-branch>')
+    inputs:
+      command: push
+      containerRegistry: "DockerHub"
+      repository: "$(dockerRepositoryName)"
+      tags: |
+        latest
+        v1.0.0
