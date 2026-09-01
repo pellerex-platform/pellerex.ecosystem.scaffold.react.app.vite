@@ -11,10 +11,12 @@
     -->
     <script src="./env.js"></script>
     <!--
-      The app is served under a runtime path prefix: app.pellerex.com/proxy/{ProductName}/{env}/
-      (ProxyApi strips /proxy/{ProductName}/{env} before nginx). We resolve that prefix at runtime
-      and set <base href> so every RELATIVE asset URL (Vite base:'./') resolves correctly at any
-      deep-link depth — without baking the path at build time. (03_NETWORKING / 05_CONFIG_SECRETS.)
+      The app is served under a runtime path prefix — app.pellerex.com/proxy/{ProductName}/{env}/
+      in production (the ingress strips /proxy, ProxyApi strips /{ProductName}/{env} before nginx),
+      https://localhost:11201/{ProductName}/{env}/ when ProxyApi runs locally with no ingress, and
+      "/" on a tenant custom domain. We resolve that prefix at runtime and set <base href> so every
+      RELATIVE asset URL (Vite base:'./') resolves correctly at any deep-link depth — without baking
+      the path at build time. (03_NETWORKING / 05_CONFIG_SECRETS.)
     -->
     <base id="pellerex-base" href="/" />
     <script>
@@ -22,8 +24,12 @@
         var env = window.__PELLEREX_ENV__ || {};
         var base = env.basePath;
         if (!base) {
-          // Derive /proxy/{ProductName}/{env} from the URL the app was served under.
-          var m = window.location.pathname.match(/^(\/proxy\/[^/]+\/[^/]+)(\/|$)/);
+          // Derive the prefix from the URL the app was served under: an optional /proxy, then
+          // /{ProductName}/{env} where {env} is one of ProxyApi's environment names. No match
+          // (a custom domain) means the app is served at the root.
+          var m = window.location.pathname.match(
+            /^((?:\/proxy)?\/[^/]+\/(?:qualityassurance|staging|production))(\/|$)/i
+          );
           base = m ? m[1] : "/";
         }
         if (base !== "/" && base.charAt(base.length - 1) !== "/") base += "/";
