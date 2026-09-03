@@ -20,11 +20,14 @@ jobs:
           lfs: true
 
       # Secret scan (WA-R2): a static SPA ships its entire bundle to the browser, so NO
-      # secret may ever land in the repo — same gate as the AzDO pipeline.
+      # secret may ever land in the repo — same gate as the AzDO pipeline. Runs the MIT
+      # gitleaks CLI directly (same image + flags as AzDO): the gitleaks-action wrapper
+      # demands a paid GITLEAKS_LICENSE on organisation-owned repos, and every tenant
+      # repo is organisation-owned.
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --no-git --redact -v
 
       - name: Upload infrastructure artifacts
         uses: actions/upload-artifact@v4
