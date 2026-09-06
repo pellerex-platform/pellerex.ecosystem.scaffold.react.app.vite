@@ -27,7 +27,7 @@ jobs:
       - name: Secret scan (gitleaks)
         run: |
           docker run --rm -v "${{ github.workspace }}:/repo" zricethezav/gitleaks:latest \
-            detect --source=/repo --no-git --redact -v
+            detect --source=/repo --no-git --redact -v --config /repo/.gitleaks.toml
 
       - name: Upload infrastructure artifacts
         uses: actions/upload-artifact@v4

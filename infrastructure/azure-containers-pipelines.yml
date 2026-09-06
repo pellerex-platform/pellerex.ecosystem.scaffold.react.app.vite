@@ -21,7 +21,7 @@ steps:
   # land in the repo. Fail the build if any secret is detected (only public runtime config via env.js).
   - script: |
       docker run --rm -v "$(Build.SourcesDirectory):/repo" zricethezav/gitleaks:latest \
-        detect --source=/repo --no-git --redact -v
+        detect --source=/repo --no-git --redact -v --config /repo/.gitleaks.toml
     displayName: "Secret scan (gitleaks) — fail on any secret (WA-R2)"
 
   - task: NodeTool@0
