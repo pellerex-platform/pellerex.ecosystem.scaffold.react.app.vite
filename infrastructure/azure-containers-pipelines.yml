@@ -7,7 +7,7 @@ pool:
 variables:
   - group: PipelineVariables
   - name: projectName
-    value: "Pellerex.Ecosystem.ManagedApp.RepoUniqueIdentifier"
+    value: "Pellerex.Ecosystem.ManagedApp.RepoUniqueNormalisedIdentifier"
   - name: dockerRepositoryName
     value: "pellerex/RepoUniqueNormalisedIdentifier"
   - name: nodeVersion
