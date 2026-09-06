@@ -1,0 +1,13 @@
+# Secret scan configuration for this app (WA-R2). Extends the default gitleaks rules; only the
+# allowlist below is added.
+title = "Pellerex web app"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Application Insights connection strings are public browser telemetry configuration, not secrets: the SPA ships them to the browser by design, and Microsoft documents the instrumentation key as non-sensitive. They are written into the Helm values by the SetupMonitoring provisioning step."
+regexTarget = "line"
+regexes = [
+  '''InstrumentationKey=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12};IngestionEndpoint=https://[a-z0-9.-]+\.in\.applicationinsights\.azure\.com/''',
+]
