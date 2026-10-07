@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+# The build only reads the repository, so its token may do nothing else.
+permissions:
+  contents: read
+
 env:
   # Matches this scaffold's AzDO pipeline artifact identity (ManagedApp — the Managed App
   # Service product type, WA-D5 — not ManagedApi). The release side must consume this name.
