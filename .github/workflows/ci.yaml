@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+# The build only reads the repository, so its token may do nothing else.
+permissions:
+  contents: read
+
 env:
   # Matches this scaffold's AzDO pipeline artifact identity (ManagedApp — the Managed App
   # Service product type, WA-D5 — not ManagedApi). The release side must consume this name.
@@ -11,8 +15,15 @@ env:
   DOCKER_REPOSITORY: pellerex/RepoUniqueNormalisedIdentifier
 
 jobs:
+  # The main branch builds the image and pushes it. The registry login is kept on the
+  # ContainerRegistry environment, which GitHub hands to the main branch only, so a run on
+  # any other branch cannot read it.
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment:
+      name: ContainerRegistry
+      deployment: false
     steps:
       - name: Checkout (with LFS)
         uses: actions/checkout@v4
@@ -36,7 +47,6 @@ jobs:
           path: infrastructure/**
 
       - name: Log in to DockerHub
-        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: docker.io
@@ -48,7 +58,31 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          push: ${{ github.ref == 'refs/heads/main' }}
+          push: true
           tags: |
             ${{ env.DOCKER_REPOSITORY }}:latest
             ${{ env.DOCKER_REPOSITORY }}:v1.0.0
+
+  # Any other branch builds the image to show that it builds. It has no registry login and
+  # pushes nothing.
+  build-without-publishing:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with LFS)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # The same secret scan as in the job above: it guards every branch.
+      - name: Secret scan (gitleaks)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --no-git --redact -v --config /repo/.gitleaks.toml
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: false
