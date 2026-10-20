@@ -16,10 +16,10 @@ health endpoints, runtime config injection), with the differences a static SPA n
 | `index.html` | Loads `env.js`, then resolves the runtime base path so assets work under any prefix |
 | `public/env.js` | Dev/fallback runtime config (overwritten in the container by `env.sh`) |
 | `nginx.conf` | `listen <port-number>` (→ 9000), exact-match health endpoints, SPA fallback |
-| `Dockerfile` | Multi-stage: `node build` → `nginx:alpine` runtime |
+| `Dockerfile` | Multi-stage: `node build` → `nginx:alpine` runtime, plus a `unit-tests` stage the default build skips |
 | `docker-entrypoint.d/env.sh` | Writes `env.js` from env vars at container start (build once, run everywhere) |
 | `infrastructure/Helm/` | `Deployment` + `Service` (ClusterIP) + per-env values; health probes; **no Ingress** |
-| `infrastructure/azure-containers-pipelines.yml` | CI: `npm ci` → build → docker → push |
+| `infrastructure/azure-containers-pipelines.yml` | CI: unit tests → `npm ci` → build → docker → push |
 
 ## Local development
 
@@ -27,7 +27,12 @@ health endpoints, runtime config injection), with the differences a static SPA n
 npm install
 npm run dev      # http://localhost:5173
 npm run build    # -> dist/
+npm test         # unit tests (Vitest): the *.test.ts(x) files beside the code
 ```
+
+Both CI builds (GitHub and Azure DevOps) run the unit tests before they build the image, in the
+Dockerfile's `unit-tests` stage, and keep the results and line coverage as the `test-coverage`
+artifact that Pellerex shows on the app's Test Coverage tab. A failing test stops the build.
 
 Edit `public/env.js` for local runtime config. In the container this file is replaced at start by
 `docker-entrypoint.d/env.sh` from environment variables.
